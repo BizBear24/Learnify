@@ -80,6 +80,37 @@ export default function Dashboard() {
         </section>
       )}
 
+      <section className="space-y-3">
+        <h2 className="text-2xl font-bold">Reviews</h2>
+        {[...games].reverse().slice(0, 10).map((g) => (
+          <details key={g.code + g.at} className="block-box bg-white">
+            <summary className="flex min-h-[48px] cursor-pointer items-center justify-between gap-3 p-3 font-bold">
+              <span className="truncate">{g.title}</span>
+              <span className="shrink-0 font-mono text-sm">{g.correct}/{g.total} · {g.score}</span>
+            </summary>
+            {g.swot ? (
+              <div className="grid gap-3 border-t-[3px] border-ink p-3 sm:grid-cols-2">
+                {([
+                  ["Strengths", g.swot.strengths, "bg-lime"],
+                  ["Weaknesses", g.swot.weaknesses, "bg-cyan"],
+                  ["Opportunities", g.swot.opportunities, "bg-paper"],
+                  ["Threats", g.swot.threats, "bg-paper"],
+                ] as const).map(([h, items, bg]) => (
+                  <div key={h} className={`border-[3px] border-ink p-3 ${bg}`}>
+                    <h3 className="font-bold">{h}</h3>
+                    <ul className="list-disc space-y-1 pl-5 text-sm">
+                      {items.map((x, i) => <li key={i}>{x}</li>)}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="border-t-[3px] border-ink p-3 font-mono text-sm">No SWOT saved for this game.</p>
+            )}
+          </details>
+        ))}
+      </section>
+
       <a href="/" className="btn w-full">New game</a>
     </div>
   );

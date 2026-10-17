@@ -151,3 +151,62 @@ export function badges(
       : null,
   };
 }
+
+/** A player's own SWOT, derived only from their stored answers. No AI. */
+export function playerSwot(
+  room: Pick<Room, "startedAt" | "questions">,
+  pid: string,
+  answers: Record<string, StoredAnswer>,
+) {
+  const n = room.questions.length;
+  const { topics } = progress(room, pid, answers);
+  let right = 0, unanswered = 0, wrongFast = 0, fastRight = 0, bestStreak = 0, run = 0, ms = 0, answered = 0;
+  room.questions.forEach((q, i) => {
+    const a = answers[`${pid}:${i}`];
+    if (!a) { unanswered += 1; run = 0; return; }
+    const sec = Math.max(0, a.t - ((room.startedAt ?? 0) + i * BLOCK_MS)) / 1000;
+    answered += 1;
+    ms += sec;
+    if (a.choice === q.answerIndex) {
+      right += 1; run += 1; bestStreak = Math.max(bestStreak, run);
+      if (sec <= 5) fastRight += 1;
+    } else {
+      run = 0;
+      if (sec <= 3) wrongFast += 1;
+    }
+  });
+  const avg = answered ? ms / answered : 0;
+  const wrong = answered - right;
+
+  const strengths: string[] = [];
+  const weaknesses: string[] = [];
+  const opportunities: string[] = [];
+  const threats: string[] = [];
+
+  for (const t of topics.filter((t) => t.pct >= 70).slice(-2).reverse()) strengths.push(`Solid on ${t.topic}: ${t.right}/${t.total} right.`);
+  if (bestStreak >= 2) strengths.push(`Best streak: ${bestStreak} correct in a row.`);
+  if (fastRight > 0) strengths.push(`${fastRight} correct answer${fastRight > 1 ? "s" : ""} in under 5 seconds.`);
+  if (strengths.length === 0) strengths.push(`You answered ${answered} of ${n} questions.`);
+
+  for (const t of topics.filter((t) => t.pct < 60).slice(0, 3)) weaknesses.push(`${t.topic}: only ${t.right}/${t.total} right.`);
+  if (wrong > 0) weaknesses.push(`${wrong} wrong answer${wrong > 1 ? "s" : ""} to review.`);
+  if (weaknesses.length === 0) weaknesses.push("No clear weak spot this round.");
+
+  for (const t of topics.filter((t) => t.pct >= 60 && t.pct < 100).slice(0, 2)) opportunities.push(`Close on ${t.topic} (${t.right}/${t.total}). One more right masters it.`);
+  if (wrong > 0) opportunities.push("Reviewing your missed questions is the fastest way to gain points.");
+  if (unanswered > 0) opportunities.push(`${unanswered} unanswered question${unanswered > 1 ? "s" : ""} are points left on the table.`);
+  if (opportunities.length === 0) opportunities.push("Try a harder document to keep improving.");
+
+  if (unanswered > 0) threats.push(`${unanswered} question${unanswered > 1 ? "s" : ""} timed out with no answer.`);
+  if (avg > 10) threats.push(`Slow answers (${avg.toFixed(1)}s on average) cost speed points.`);
+  if (wrongFast > 0) threats.push(`${wrongFast} wrong answer${wrongFast > 1 ? "s" : ""} in under 3 seconds. Possible guessing.`);
+  for (const t of topics.filter((t) => t.pct === 0).slice(0, 2)) threats.push(`Zero right on ${t.topic}. It could cost you again.`);
+  if (threats.length === 0) threats.push("No big risks showed up this round.");
+
+  return {
+    strengths: strengths.slice(0, 4),
+    weaknesses: weaknesses.slice(0, 4),
+    opportunities: opportunities.slice(0, 4),
+    threats: threats.slice(0, 4),
+  };
+}

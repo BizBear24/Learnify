@@ -47,6 +47,7 @@ export interface HistoryItem {
   total: number;
   weak: string[];
   topics?: { topic: string; right: number; total: number }[];
+  swot?: { strengths: string[]; weaknesses: string[]; opportunities: string[]; threats: string[] };
 }
 export function loadHistory(): HistoryItem[] {
   try {

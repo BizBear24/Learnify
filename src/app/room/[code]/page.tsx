@@ -20,7 +20,7 @@ interface State {
   question?: { q: string; options: string[]; topic: string };
   myChoice?: number | null; answerIndex?: number; explanation?: string;
   nextCode?: string | null;
-  leaderboard?: LB[]; swot?: Swot;
+  leaderboard?: LB[]; swot?: Swot; mySwot?: Swot | null;
   analytics?: { players: number; participation: number; accuracy: number; perQuestion: { qIndex: number; topic: string; pctCorrect: number; answered: number; avgSec: number | null }[] };
   myProgress?: { topics: { topic: string; right: number; total: number; pct: number }[]; missed: Missed[] } | null;
 }
@@ -83,6 +83,7 @@ export default function Room({ params }: { params: { code: string } }) {
       code, title: s.title, at: Date.now(), score: mine.score, correct: mine.correct, total: s.total,
       weak: (s.myProgress?.topics ?? []).filter((t) => t.pct < 60).map((t) => t.topic).slice(0, 3),
       topics: (s.myProgress?.topics ?? []).map(({ topic, right, total }) => ({ topic, right, total })),
+      swot: s.mySwot ?? undefined,
     });
   }, [s, pid, code]);
 
@@ -371,7 +372,7 @@ function Results({ s, hostToken, code, pid }: { s: State; hostToken: string; cod
       setRbusy(false);
     }
   }
-  const sw = s.swot;
+  const sw = s.mySwot;
   const mp = s.myProgress;
   return (
     <>
@@ -445,7 +446,7 @@ function Results({ s, hostToken, code, pid }: { s: State; hostToken: string; cod
 
       {sw && (
         <section>
-          <h2 className="mb-3 text-3xl font-bold">SWOT of the document</h2>
+          <h2 className="mb-3 text-3xl font-bold">Your SWOT</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             {([
               ["Strengths", sw.strengths, "bg-lime"],

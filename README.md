@@ -8,14 +8,14 @@ Drop it in, and about twenty seconds later you have a quiz room with a five-lett
 
 ## What it does
 
-- Turns a text PDF into 10 multiple-choice questions and a SWOT of the document.
+- Turns a text PDF into 10 multiple-choice questions.
 - Runs the quiz live: 15 seconds to answer, 5 to see the right answer and why.
 - Lets the host fix the questions before starting. Only the host can start.
 - Shows a QR code in the lobby, so people can scan instead of typing the code.
 - Shows streaks and who answered fastest as the game goes.
-- Ends with a leaderboard, what each room found hard, and what you personally got wrong.
+- Ends with a leaderboard, what each room found hard, and a personal SWOT built from your own right and wrong answers.
 - Gives you a 3-step study plan and a simpler explanation of any question you missed, if you ask for them.
-- Has a dashboard that tracks your accuracy and weak topics over time.
+- Has a dashboard that tracks your accuracy and weak topics over time, and keeps each game's SWOT as a review.
 - Has a rematch button, and a `/demo` room that skips the AI for when the wifi gives up.
 
 No accounts. Your history stays in your own browser.
