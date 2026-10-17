@@ -158,7 +158,7 @@ export default function Room({ params }: { params: { code: string } }) {
         <Game s={s} nowSrv={nowSrv()} picked={picked} onPick={(c) => answer(s.qIndex!, c)} />
       )}
 
-      {s.phase === "finished" && <Results s={s} pid={pid} />}
+      {s.phase === "finished" && <Results s={s} />}
     </div>
   );
 }
@@ -265,7 +265,7 @@ function Count({ to }: { to: number }) {
   return <>{v}</>;
 }
 
-function Results({ s, pid }: { s: State; pid: string }) {
+function Results({ s }: { s: State }) {
   const sw = s.swot;
   const mp = s.myProgress;
   return (
@@ -291,9 +291,11 @@ function Results({ s, pid }: { s: State; pid: string }) {
             ))}
           </div>
           {mp.missed.length > 0 && (
-            <>
-              <h3 className="label">REVIEW WHAT YOU MISSED</h3>
-              <ul className="space-y-3">
+            <details>
+              <summary className="label cursor-pointer border-[3px] border-ink bg-cyan p-3">
+                REVIEW WHAT YOU MISSED ({mp.missed.length})
+              </summary>
+              <ul className="mt-3 space-y-3">
                 {mp.missed.map((m) => (
                   <li key={m.qIndex} className="border-[3px] border-ink bg-paper p-3">
                     <p className="font-bold">{m.q}</p>
@@ -305,11 +307,10 @@ function Results({ s, pid }: { s: State; pid: string }) {
                   </li>
                 ))}
               </ul>
-            </>
+            </details>
           )}
         </section>
       )}
-      <span hidden>{pid}</span>
 
       {sw && (
         <section>
