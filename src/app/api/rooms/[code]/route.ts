@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAnswers, getPlayers, getRoom } from "@/lib/redis";
-import { ANSWER_MS, BLOCK_MS, analytics, derive, leaderboard, progress } from "@/lib/game";
+import { ANSWER_MS, BLOCK_MS, analytics, badges, derive, leaderboard, progress } from "@/lib/game";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +53,9 @@ export async function GET(req: Request, { params }: { params: { code: string } }
     question: { q: q.q, options: q.options, topic: q.topic },
     myChoice: mine ? mine.choice : null,
     // Secrecy: answer + explanation only once this question's reveal window opens.
-    ...(reveal ? { answerIndex: q.answerIndex, explanation: q.explanation } : {}),
+    ...(reveal
+      ? { answerIndex: q.answerIndex, explanation: q.explanation, badges: badges(room, players, answers, pid, qIndex) }
+      : {}),
     // Scores only count questions whose reveal has started, so they can't leak answers.
     leaderboard: leaderboard(room, players, answers, reveal ? qIndex + 1 : qIndex),
   });

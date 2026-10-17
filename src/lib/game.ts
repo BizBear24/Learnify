@@ -123,3 +123,31 @@ export function analytics(
     perQuestion,
   };
 }
+
+/** Reveal-time badges for one player and the question being revealed. */
+export function badges(
+  room: Pick<Room, "startedAt" | "questions">,
+  players: Record<string, string>,
+  answers: Record<string, StoredAnswer>,
+  pid: string,
+  qIndex: number,
+) {
+  let streak = 0;
+  for (let i = qIndex; i >= 0; i--) {
+    const a = answers[`${pid}:${i}`];
+    if (a && a.choice === room.questions[i].answerIndex) streak += 1;
+    else break;
+  }
+  let best: { pid: string; t: number } | null = null;
+  for (const p of Object.keys(players)) {
+    const a = answers[`${p}:${qIndex}`];
+    if (a && a.choice === room.questions[qIndex].answerIndex && (!best || a.t < best.t)) best = { pid: p, t: a.t };
+  }
+  const start = (room.startedAt ?? 0) + qIndex * BLOCK_MS;
+  return {
+    streak,
+    fastest: best
+      ? { name: players[best.pid], sec: Math.round(((best.t - start) / 1000) * 10) / 10, you: best.pid === pid }
+      : null,
+  };
+}

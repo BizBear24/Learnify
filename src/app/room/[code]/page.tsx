@@ -16,6 +16,7 @@ interface State {
   startedAt: number | null; total: number; blockMs: number; answerMs: number;
   players: string[]; me: string | null;
   qIndex?: number;
+  badges?: { streak: number; fastest: { name: string; sec: number; you: boolean } | null };
   question?: { q: string; options: string[]; topic: string };
   myChoice?: number | null; answerIndex?: number; explanation?: string;
   nextCode?: string | null;
@@ -236,6 +237,16 @@ function Game({ s, nowSrv, picked, onPick }: {
             <b className="font-mono">{mine === s.answerIndex ? "CORRECT. " : mine === null ? "TOO SLOW. " : "NOPE. "}</b>
             {s.explanation}
           </p>
+          {s.badges && (s.badges.streak >= 2 || s.badges.fastest) && (
+            <div className="flex flex-wrap gap-2 font-mono text-sm font-bold">
+              {s.badges.streak >= 2 && <span className="border-[3px] border-ink bg-lime px-3 py-2">{s.badges.streak} IN A ROW</span>}
+              {s.badges.fastest && (
+                <span className="border-[3px] border-ink bg-cyan px-3 py-2">
+                  FASTEST: {s.badges.fastest.you ? "YOU" : s.badges.fastest.name.toUpperCase()} · {s.badges.fastest.sec}s
+                </span>
+              )}
+            </div>
+          )}
           <Board lb={s.leaderboard ?? []} me={s.me} />
         </>
       )}
