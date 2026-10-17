@@ -2,26 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+html,
+body {
+  background: #f4f4ee;
+  color: #0a0a0a;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+* {
+  border-radius: 0 !important;
+}
+
+:focus-visible {
+  outline: 4px solid #0a0a0a;
+  outline-offset: 3px;
+}
+
+@layer components {
+  .block-box {
+    @apply border-[3px] border-ink bg-paper shadow-hard;
+  }
+  .btn {
+    @apply inline-flex min-h-[48px] items-center justify-center border-[3px] border-ink bg-lime px-5 py-2 font-mono text-base font-bold uppercase tracking-wide text-ink shadow-hard transition-none;
+  }
+  .btn:active:not(:disabled) {
+    transform: translate(4px, 4px);
+    box-shadow: 0 0 0 #000;
+  }
+  .btn:disabled {
+    @apply cursor-not-allowed bg-paper opacity-60;
+  }
+  .field {
+    @apply min-h-[48px] w-full border-[3px] border-ink bg-white px-3 py-2 font-mono text-lg text-ink;
+  }
+  .label {
+    @apply font-mono text-xs font-bold tracking-widest text-ink;
+  }
+  .opt {
+    @apply flex min-h-[64px] w-full items-stretch border-[3px] border-ink bg-paper text-left shadow-hardsm transition-none;
+  }
+  .opt:active:not(:disabled) {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 #000;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
   }
 }

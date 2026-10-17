@@ -1,101 +1,116 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { api, joinRoom, saveSession, loadHistory, type HistoryItem } from "@/lib/client";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState<"" | "upload" | "join">("");
+  const [err, setErr] = useState("");
+  const [hist, setHist] = useState<HistoryItem[]>([]);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+  useEffect(() => setHist(loadHistory()), []);
+
+  const nameOk = name.trim().length > 0;
+
+  async function upload() {
+    if (!file || !nameOk) return;
+    setErr("");
+    setBusy("upload");
+    try {
+      const fd = new FormData();
+      fd.set("file", file);
+      const r = await api<{ code: string; hostToken: string }>("/api/rooms", undefined, fd);
+      saveSession(r.code, { hostToken: r.hostToken });
+      await joinRoom(r.code, name.trim());
+      router.push(`/room/${r.code}`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Something went wrong");
+      setBusy("");
+    }
+  }
+
+  async function join() {
+    if (code.length !== 5 || !nameOk) return;
+    setErr("");
+    setBusy("join");
+    try {
+      await joinRoom(code, name.trim());
+      router.push(`/room/${code}`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Something went wrong");
+      setBusy("");
+    }
+  }
+
+  const weak = Array.from(new Set(hist.flatMap((h) => h.weak))).slice(0, 5);
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-6xl font-bold leading-[0.9] tracking-tight">
+        Learnify<span className="bg-lime px-1">.</span>
+      </h1>
+      <p className="max-w-md text-xl">Drop a PDF. Get a live quiz room. Race your friends.</p>
+
+      <section className="block-box space-y-2 bg-white p-4">
+        <label className="label" htmlFor="nick">YOUR NICKNAME</label>
+        <input id="nick" className="field" maxLength={20} value={name}
+          onChange={(e) => setName(e.target.value)} placeholder="Ada" autoComplete="nickname" />
+      </section>
+
+      <section className="block-box space-y-3 bg-lime p-4">
+        <h2 className="text-3xl font-bold">Upload a PDF</h2>
+        <p className="font-mono text-sm">Text PDF, max 15 pages, max 4 MB.</p>
+        <label className="label block" htmlFor="pdf">CHOOSE FILE</label>
+        <input id="pdf" type="file" accept="application/pdf"
+          className="field bg-paper file:mr-3 file:border-[3px] file:border-ink file:bg-cyan file:px-3 file:py-1 file:font-mono file:font-bold"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        <button className="btn w-full bg-paper" disabled={!file || !nameOk || !!busy} onClick={upload}>
+          {busy === "upload" ? "Reading + generating… ~20s" : "Make quiz room"}
+        </button>
+      </section>
+
+      <section className="block-box space-y-3 bg-cyan p-4">
+        <h2 className="text-3xl font-bold">Join a room</h2>
+        <label className="label block" htmlFor="code">ROOM CODE</label>
+        <input id="code" className="field text-center text-3xl font-extrabold uppercase tracking-[0.3em]"
+          maxLength={5} value={code} onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))}
+          placeholder="ABCDE" autoCapitalize="characters" />
+        <button className="btn w-full" disabled={code.length !== 5 || !nameOk || !!busy} onClick={join}>
+          {busy === "join" ? "Joining…" : "Join"}
+        </button>
+      </section>
+
+      {err && (
+        <p role="alert" className="border-[3px] border-ink bg-wrong p-3 font-mono font-bold text-white shadow-hard">
+          {err}
+        </p>
+      )}
+
+      {hist.length > 0 && (
+        <section className="block-box bg-white p-4">
+          <h2 className="mb-2 text-2xl font-bold">Your progress</h2>
+          <ul className="divide-y-[3px] divide-ink border-y-[3px] border-ink">
+            {hist.slice(0, 5).map((h) => (
+              <li key={h.code} className="flex items-baseline justify-between gap-3 py-2">
+                <span className="truncate font-bold">{h.title}</span>
+                <span className="shrink-0 font-mono text-sm">{h.correct}/{h.total} · {h.score}</span>
+              </li>
+            ))}
+          </ul>
+          {weak.length > 0 && (
+            <p className="mt-2 font-mono text-sm"><b>WEAK TOPICS:</b> {weak.join(" · ")}</p>
+          )}
+        </section>
+      )}
+
+      <p className="font-mono text-sm">
+        No PDF handy? <a className="font-bold underline" href="/demo">Try the demo room</a>
+      </p>
     </div>
   );
 }
