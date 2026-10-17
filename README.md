@@ -22,11 +22,11 @@ No accounts. Your history stays in your own browser.
 
 ## How it works
 
-There are no websockets. The server never pushes anything. Every phone just asks once a second what time it is in the game, and the answer comes from one formula:
+There are no websockets. The server never pushes anything. Every phone just asks once a second where the game is. The server answers by laying the questions out on a timeline from the start time and checking which slot the clock falls in:
 
-`question = whichever slot the clock falls in`
+`answer window, then 5s reveal, then the next question`
 
-That is the whole multiplayer engine. It also means nothing lives in server memory, so it runs on Vercel's serverless functions without any tricks.
+That is the whole multiplayer engine. Ending a question early just records how many seconds were saved. It also means nothing lives in server memory, so it runs on Vercel's serverless functions without any tricks.
 
 The right answer never leaves the server until that question's reveal window opens. Scores come from stored answers and server timestamps, never from anything the browser claims.
 
