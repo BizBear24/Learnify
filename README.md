@@ -9,7 +9,7 @@ Drop it in, and about twenty seconds later you have a quiz room with a five-lett
 ## What it does
 
 - Turns a text PDF into 10 multiple-choice questions.
-- Runs the quiz live: 15 seconds to answer, 5 to see the right answer and why.
+- Runs the quiz live: the host picks 10 to 60 seconds per question, then everyone gets 5 seconds to see the right answer and why. When every player has answered, the host can jump straight to the answer instead of waiting.
 - Lets the host fix the questions before starting. Only the host can start.
 - Shows a QR code in the lobby, so people can scan instead of typing the code.
 - Shows streaks and who answered fastest as the game goes.
@@ -24,7 +24,7 @@ No accounts. Your history stays in your own browser.
 
 There are no websockets. The server never pushes anything. Every phone just asks once a second what time it is in the game, and the answer comes from one formula:
 
-`question = floor((now - startedAt) / 20000)`
+`question = whichever slot the clock falls in`
 
 That is the whole multiplayer engine. It also means nothing lives in server memory, so it runs on Vercel's serverless functions without any tricks.
 

@@ -1,7 +1,7 @@
 import type { Question, Room } from "./schema";
 
-export const BLOCK_MS = 20000;
-export const ANSWER_MS = 15000;
+export const REVEAL_MS = 5000;
+export const DEFAULT_ANSWER_MS = 15000;
 export const START_DELAY_MS = 3000;
 
 export type Phase = "lobby" | "countdown" | "answer" | "reveal" | "finished";
@@ -11,39 +11,62 @@ export interface StoredAnswer {
   t: number; // server timestamp (ms)
 }
 
-export function derive(room: Pick<Room, "startedAt" | "questions">, now: number) {
-  if (room.startedAt == null) return { phase: "lobby" as Phase, qIndex: -1, into: 0 };
-  const elapsed = now - room.startedAt;
-  if (elapsed < 0) return { phase: "countdown" as Phase, qIndex: 0, into: elapsed };
-  const qIndex = Math.floor(elapsed / BLOCK_MS);
-  if (qIndex >= room.questions.length) {
-    return { phase: "finished" as Phase, qIndex: room.questions.length, into: 0 };
-  }
-  const into = elapsed % BLOCK_MS;
-  return { phase: (into < ANSWER_MS ? "answer" : "reveal") as Phase, qIndex, into };
+/** Everything the clock needs. `skips[q]` = ms saved when the host ended question q early. */
+export type TRoom = Pick<Room, "startedAt" | "questions"> & {
+  answerMs?: number;
+  skips?: Record<string, number>;
+};
+
+export const answerMsOf = (r: { answerMs?: number }) => r.answerMs ?? DEFAULT_ANSWER_MS;
+
+export function timeline(room: TRoom) {
+  const out: { start: number; answerEnd: number; end: number }[] = [];
+  const ans = answerMsOf(room);
+  let t = room.startedAt ?? 0;
+  room.questions.forEach((_, i) => {
+    const answerEnd = t + ans - (room.skips?.[i] ?? 0);
+    const end = answerEnd + REVEAL_MS;
+    out.push({ start: t, answerEnd, end });
+    t = end;
+  });
+  return out;
 }
 
-export function scoreFor(q: Question, qIndex: number, startedAt: number, a: StoredAnswer): number {
+export function derive(room: TRoom, now: number) {
+  if (room.startedAt == null) return { phase: "lobby" as Phase, qIndex: -1, into: 0, t: null };
+  if (now < room.startedAt) return { phase: "countdown" as Phase, qIndex: 0, into: now - room.startedAt, t: null };
+  const tl = timeline(room);
+  for (let i = 0; i < tl.length; i++) {
+    if (now < tl[i].end) {
+      return { phase: (now < tl[i].answerEnd ? "answer" : "reveal") as Phase, qIndex: i, into: now - tl[i].start, t: tl[i] };
+    }
+  }
+  return { phase: "finished" as Phase, qIndex: room.questions.length, into: 0, t: null };
+}
+
+/** Score uses the full (unshortened) window so ending early never changes anyone's points. */
+export function scoreFor(q: Question, a: StoredAnswer, qStart: number, ansMs: number): number {
   if (a.choice !== q.answerIndex) return 0;
-  const deadline = startedAt + qIndex * BLOCK_MS + ANSWER_MS;
-  const frac = Math.min(1, Math.max(0, (deadline - a.t) / ANSWER_MS));
+  const frac = Math.min(1, Math.max(0, (qStart + ansMs - a.t) / ansMs));
   return Math.round(1000 * (0.5 + 0.5 * frac));
 }
 
 /** answers: hash of "pid:qIndex" -> StoredAnswer. Only questions < upTo are counted. */
 export function leaderboard(
-  room: Pick<Room, "startedAt" | "questions">,
+  room: TRoom,
   players: Record<string, string>,
   answers: Record<string, StoredAnswer>,
   upTo: number,
 ) {
+  const tl = timeline(room);
+  const ans = answerMsOf(room);
   const totals: Record<string, { score: number; correct: number }> = {};
   for (const pid of Object.keys(players)) totals[pid] = { score: 0, correct: 0 };
   for (const [key, a] of Object.entries(answers)) {
     const [pid, qs] = key.split(":");
     const qi = Number(qs);
     if (!totals[pid] || qi >= upTo || !room.questions[qi] || room.startedAt == null) continue;
-    const s = scoreFor(room.questions[qi], qi, room.startedAt, a);
+    const s = scoreFor(room.questions[qi], a, tl[qi].start, ans);
     totals[pid].score += s;
     if (s > 0) totals[pid].correct += 1;
   }
@@ -92,18 +115,19 @@ export function progress(
 
 /** Room-wide analytics from real stored answers. */
 export function analytics(
-  room: Pick<Room, "startedAt" | "questions">,
+  room: TRoom,
   players: Record<string, string>,
   answers: Record<string, StoredAnswer>,
 ) {
   const n = Object.keys(players).length;
+  const tl = timeline(room);
   const perQuestion = room.questions.map((q, i) => {
     let right = 0, answered = 0, ms = 0;
     for (const pid of Object.keys(players)) {
       const a = answers[`${pid}:${i}`];
       if (!a) continue;
       answered += 1;
-      ms += Math.max(0, a.t - ((room.startedAt ?? 0) + i * BLOCK_MS));
+      ms += Math.max(0, a.t - tl[i].start);
       if (a.choice === q.answerIndex) right += 1;
     }
     return {
@@ -126,7 +150,7 @@ export function analytics(
 
 /** Reveal-time badges for one player and the question being revealed. */
 export function badges(
-  room: Pick<Room, "startedAt" | "questions">,
+  room: TRoom,
   players: Record<string, string>,
   answers: Record<string, StoredAnswer>,
   pid: string,
@@ -143,7 +167,7 @@ export function badges(
     const a = answers[`${p}:${qIndex}`];
     if (a && a.choice === room.questions[qIndex].answerIndex && (!best || a.t < best.t)) best = { pid: p, t: a.t };
   }
-  const start = (room.startedAt ?? 0) + qIndex * BLOCK_MS;
+  const start = timeline(room)[qIndex].start;
   return {
     streak,
     fastest: best
@@ -154,17 +178,18 @@ export function badges(
 
 /** A player's own SWOT, derived only from their stored answers. No AI. */
 export function playerSwot(
-  room: Pick<Room, "startedAt" | "questions">,
+  room: TRoom,
   pid: string,
   answers: Record<string, StoredAnswer>,
 ) {
   const n = room.questions.length;
+  const tl = timeline(room);
   const { topics } = progress(room, pid, answers);
   let right = 0, unanswered = 0, wrongFast = 0, fastRight = 0, bestStreak = 0, run = 0, ms = 0, answered = 0;
   room.questions.forEach((q, i) => {
     const a = answers[`${pid}:${i}`];
     if (!a) { unanswered += 1; run = 0; return; }
-    const sec = Math.max(0, a.t - ((room.startedAt ?? 0) + i * BLOCK_MS)) / 1000;
+    const sec = Math.max(0, a.t - tl[i].start) / 1000;
     answered += 1;
     ms += sec;
     if (a.choice === q.answerIndex) {

@@ -13,7 +13,8 @@ interface Missed { qIndex: number; q: string; topic: string; yours: number | nul
 interface State {
   now: number; code: string; title: string;
   phase: "lobby" | "countdown" | "answer" | "reveal" | "finished";
-  startedAt: number | null; total: number; blockMs: number; answerMs: number;
+  startedAt: number | null; total: number; answerMs: number;
+  phaseStart?: number; phaseEnd?: number; answered?: number; playerCount?: number;
   players: string[]; me: string | null;
   qIndex?: number;
   badges?: { streak: number; fastest: { name: string; sec: number; you: boolean } | null };
@@ -94,6 +95,14 @@ export default function Room({ params }: { params: { code: string } }) {
     try { await api(`/api/rooms/${code}/start`, { hostToken }); poll(); }
     catch (e) { setErr(e instanceof Error ? e.message : "Failed"); }
   }
+  async function skip(qIndex: number) {
+    try { await api(`/api/rooms/${code}/skip`, { hostToken, qIndex }); poll(); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Failed"); }
+  }
+  async function setTime(sec: number) {
+    try { await api(`/api/rooms/${code}/settings`, { hostToken, answerSec: sec }); poll(); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Failed"); }
+  }
   async function answer(qIndex: number, choice: number) {
     if (picked?.q === qIndex) return;
     setPicked({ q: qIndex, c: choice });
@@ -142,7 +151,7 @@ export default function Room({ params }: { params: { code: string } }) {
         <>
           <Code code={code} />
           <JoinQR code={code} />
-          <p className="text-2xl font-bold">{s.title} <span className="font-mono text-base">({s.total} Q)</span></p>
+          <p className="text-2xl font-bold">{s.title} <span className="font-mono text-base">({s.total} Q · {Math.round(s.answerMs / 1000)}s each)</span></p>
           <section className="block-box bg-white p-4">
             <h2 className="label mb-2">PLAYERS ({s.players.length})</h2>
             <ul className="divide-y-[3px] divide-ink border-y-[3px] border-ink">
@@ -153,6 +162,16 @@ export default function Room({ params }: { params: { code: string } }) {
           </section>
           {isHost ? (
             <div className="space-y-3">
+              <div>
+                <p className="label mb-2">SECONDS PER QUESTION</p>
+                <div className="grid grid-cols-6 gap-2">
+                  {[10, 15, 20, 30, 45, 60].map((n) => (
+                    <button key={n} aria-pressed={s.answerMs === n * 1000}
+                      className={`min-h-[48px] border-[3px] border-ink font-mono font-extrabold ${s.answerMs === n * 1000 ? "bg-lime shadow-hardsm" : "bg-paper"}`}
+                      onClick={() => setTime(n)}>{n}</button>
+                  ))}
+                </div>
+              </div>
               <button className="btn w-full bg-cyan" onClick={() => setEditing(true)}>Edit questions</button>
               <button className="btn w-full text-xl" onClick={start}>Start game</button>
             </div>
@@ -172,7 +191,8 @@ export default function Room({ params }: { params: { code: string } }) {
       )}
 
       {(s.phase === "answer" || s.phase === "reveal") && s.question && s.qIndex !== undefined && (
-        <Game s={s} nowSrv={nowSrv()} picked={picked} onPick={(c) => answer(s.qIndex!, c)} />
+        <Game s={s} nowSrv={nowSrv()} picked={picked} onPick={(c) => answer(s.qIndex!, c)}
+          onSkip={isHost ? () => skip(s.qIndex!) : undefined} />
       )}
 
       {s.phase === "finished" && <Results s={s} hostToken={hostToken} code={code} pid={pid} />}
@@ -257,15 +277,14 @@ function Code({ code }: { code: string }) {
   );
 }
 
-function Game({ s, nowSrv, picked, onPick }: {
-  s: State; nowSrv: number; picked: { q: number; c: number } | null; onPick: (c: number) => void;
+function Game({ s, nowSrv, picked, onPick, onSkip }: {
+  s: State; nowSrv: number; picked: { q: number; c: number } | null; onPick: (c: number) => void; onSkip?: () => void;
 }) {
   const qi = s.qIndex!;
   const q = s.question!;
   const reveal = s.phase === "reveal";
-  const into = s.startedAt ? (nowSrv - s.startedAt) % s.blockMs : 0;
-  const leftMs = reveal ? Math.max(0, s.blockMs - into) : Math.max(0, s.answerMs - into);
-  const total = reveal ? s.blockMs - s.answerMs : s.answerMs;
+  const total = Math.max(1, (s.phaseEnd ?? 0) - (s.phaseStart ?? 0));
+  const leftMs = Math.max(0, (s.phaseEnd ?? 0) - nowSrv);
   const mine = s.myChoice ?? (picked?.q === qi ? picked.c : null);
 
   return (
@@ -294,7 +313,14 @@ function Game({ s, nowSrv, picked, onPick }: {
           );
         })}
       </div>
-      {!reveal && mine !== null && <p className="font-mono font-bold">LOCKED IN. Waiting for the clock…</p>}
+      {!reveal && (
+        <p className="font-mono font-bold">
+          {s.answered ?? 0}/{s.playerCount ?? 0} ANSWERED{mine !== null && " · LOCKED IN"}
+        </p>
+      )}
+      {!reveal && onSkip && s.answered !== undefined && s.answered === s.playerCount && (
+        <button className="btn w-full bg-cyan" onClick={onSkip}>Everyone answered. Show answer now</button>
+      )}
       {reveal && (
         <>
           <p className="block-box bg-white p-3 text-lg">

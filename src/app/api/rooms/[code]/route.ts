@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAnswers, getPlayers, getRoom } from "@/lib/redis";
-import { ANSWER_MS, BLOCK_MS, analytics, badges, derive, leaderboard, playerSwot, progress } from "@/lib/game";
+import { answerMsOf, analytics, badges, derive, leaderboard, playerSwot, progress } from "@/lib/game";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,7 @@ export async function GET(req: Request, { params }: { params: { code: string } }
 
   const now = Date.now();
   const players = await getPlayers(code);
-  const { phase, qIndex, into } = derive(room, now);
+  const { phase, qIndex, t } = derive(room, now);
   const base = {
     now,
     code,
@@ -20,8 +20,7 @@ export async function GET(req: Request, { params }: { params: { code: string } }
     phase,
     startedAt: room.startedAt,
     total: room.questions.length,
-    blockMs: BLOCK_MS,
-    answerMs: ANSWER_MS,
+    answerMs: answerMsOf(room),
     players: Object.values(players),
     me: players[pid] ?? null,
   };
@@ -50,7 +49,11 @@ export async function GET(req: Request, { params }: { params: { code: string } }
   return NextResponse.json({
     ...base,
     qIndex,
-    msIntoBlock: into,
+    // Absolute server times for the current phase, so clients draw the timer exactly even after an early finish.
+    phaseStart: reveal ? t!.answerEnd : t!.start,
+    phaseEnd: reveal ? t!.end : t!.answerEnd,
+    answered: Object.keys(players).filter((p) => answers[`${p}:${qIndex}`]).length,
+    playerCount: Object.keys(players).length,
     question: { q: q.q, options: q.options, topic: q.topic },
     myChoice: mine ? mine.choice : null,
     // Secrecy: answer + explanation only once this question's reveal window opens.
