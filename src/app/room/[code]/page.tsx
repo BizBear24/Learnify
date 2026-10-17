@@ -179,6 +179,32 @@ export default function Room({ params }: { params: { code: string } }) {
   );
 }
 
+function Explain({ code, pid, qIndex }: { code: string; pid: string; qIndex: number }) {
+  const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [text, setText] = useState("");
+  async function go() {
+    setState("loading");
+    try {
+      const r = await api<{ text: string }>(`/api/rooms/${code}/explain`, { pid, qIndex });
+      setText(r.text);
+      setState("done");
+    } catch (e) {
+      setText(e instanceof Error ? e.message : "Failed");
+      setState("error");
+    }
+  }
+  if (state === "done") return <p className="mt-2 border-[3px] border-ink bg-cyan p-2 text-sm font-bold">{text}</p>;
+  return (
+    <>
+      <button className="mt-2 min-h-[44px] border-[3px] border-ink bg-cyan px-3 font-mono text-sm font-bold"
+        disabled={state === "loading"} onClick={go}>
+        {state === "loading" ? "THINKING…" : state === "error" ? "TRY AGAIN" : "EXPLAIN SIMPLER"}
+      </button>
+      {state === "error" && <p role="alert" className="font-mono text-xs font-bold">{text}</p>}
+    </>
+  );
+}
+
 function StudyPlan({ code, pid }: { code: string; pid: string }) {
   const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [steps, setSteps] = useState<{ title: string; detail: string }[]>([]);
@@ -408,6 +434,7 @@ function Results({ s, hostToken, code, pid }: { s: State; hostToken: string; cod
                     </p>
                     <p className="bg-lime font-mono text-sm font-bold">RIGHT: {L[m.correct]}. {m.options[m.correct]}</p>
                     <p className="mt-1 text-sm">{m.explanation}</p>
+                    {pid && <Explain code={code} pid={pid} qIndex={m.qIndex} />}
                   </li>
                 ))}
               </ul>
