@@ -13,7 +13,11 @@ export default function Home() {
   const [err, setErr] = useState("");
   const [hist, setHist] = useState<HistoryItem[]>([]);
 
-  useEffect(() => setHist(loadHistory()), []);
+  useEffect(() => {
+    setHist(loadHistory());
+    const c = new URLSearchParams(window.location.search).get("code");
+    if (c) setCode(c.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5));
+  }, []);
 
   const nameOk = name.trim().length > 0;
 

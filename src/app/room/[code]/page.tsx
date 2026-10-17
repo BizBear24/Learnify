@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, joinRoom, loadSession, pushHistory } from "@/lib/client";
 import QuestionEditor from "@/components/QuestionEditor";
+import JoinQR from "@/components/JoinQR";
 import { BarChart, Stat } from "@/components/Charts";
 
 interface LB { pid: string; name: string; score: number; correct: number }
@@ -136,6 +137,7 @@ export default function Room({ params }: { params: { code: string } }) {
       {s.phase === "lobby" && !editing && (
         <>
           <Code code={code} />
+          <JoinQR code={code} />
           <p className="text-2xl font-bold">{s.title} <span className="font-mono text-base">({s.total} Q)</span></p>
           <section className="block-box bg-white p-4">
             <h2 className="label mb-2">PLAYERS ({s.players.length})</h2>
