@@ -16,6 +16,7 @@ Drop it in, and about twenty seconds later you have a quiz room with a five-lett
 - Ends with a leaderboard, what each room found hard, and a personal SWOT built from your own right and wrong answers.
 - Gives you a 3-step study plan and a simpler explanation of any question you missed, if you ask for them.
 - Has a dashboard that tracks your accuracy and weak topics over time, and keeps each game's SWOT as a review.
+- Has an XP bar and a profile page: 10 XP per correct answer, a level every 100 XP.
 - Has a rematch button, and a `/demo` room that skips the AI for when the wifi gives up.
 
 No accounts. Your history stays in your own browser.
