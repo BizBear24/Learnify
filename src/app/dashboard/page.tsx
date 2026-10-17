@@ -111,6 +111,7 @@ export default function Dashboard() {
         ))}
       </section>
 
+      <a href="/profile" className="btn w-full bg-cyan">Profile</a>
       <a href="/" className="btn w-full">New game</a>
     </div>
   );

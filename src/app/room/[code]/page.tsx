@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, joinRoom, loadSession, pushHistory, saveSession } from "@/lib/client";
+import { api, awardXp, joinRoom, loadProfile, loadSession, pushHistory, saveSession } from "@/lib/client";
+import XpBar from "@/components/XpBar";
 import QuestionEditor from "@/components/QuestionEditor";
 import JoinQR from "@/components/JoinQR";
 import { BarChart, Stat } from "@/components/Charts";
@@ -40,6 +41,7 @@ export default function Room({ params }: { params: { code: string } }) {
   const offset = useRef(0);
   const [nick, setNick] = useState("");
   const [editing, setEditing] = useState(false);
+  const [xp, setXp] = useState<{ gained: number; levelUp: boolean; total: number } | null>(null);
 
   useEffect(() => {
     const ses = loadSession(code);
@@ -80,6 +82,8 @@ export default function Room({ params }: { params: { code: string } }) {
     saved.current = true;
     const mine = s.leaderboard.find((x) => x.pid === pid);
     if (!mine) return;
+    const r = awardXp(code, mine.correct, s.me ?? "");
+    setXp({ gained: r.gained, levelUp: r.levelUp, total: loadProfile().xp });
     pushHistory({
       code, title: s.title, at: Date.now(), score: mine.score, correct: mine.correct, total: s.total,
       weak: (s.myProgress?.topics ?? []).filter((t) => t.pct < 60).map((t) => t.topic).slice(0, 3),
@@ -195,7 +199,7 @@ export default function Room({ params }: { params: { code: string } }) {
           onSkip={isHost ? () => skip(s.qIndex!) : undefined} />
       )}
 
-      {s.phase === "finished" && <Results s={s} hostToken={hostToken} code={code} pid={pid} />}
+      {s.phase === "finished" && <Results s={s} hostToken={hostToken} code={code} pid={pid} xp={xp} />}
     </div>
   );
 }
@@ -381,7 +385,9 @@ function Count({ to }: { to: number }) {
   return <>{v}</>;
 }
 
-function Results({ s, hostToken, code, pid }: { s: State; hostToken: string; code: string; pid: string }) {
+function Results({ s, hostToken, code, pid, xp }: {
+  s: State; hostToken: string; code: string; pid: string; xp: { gained: number; levelUp: boolean; total: number } | null;
+}) {
   const router = useRouter();
   const [rbusy, setRbusy] = useState(false);
   const [rerr, setRerr] = useState("");
@@ -405,6 +411,17 @@ function Results({ s, hostToken, code, pid }: { s: State; hostToken: string; cod
       <h1 className="text-5xl font-bold leading-none">Final results</h1>
       <p className="text-xl font-bold">{s.title}</p>
       <Board lb={s.leaderboard ?? []} me={s.me} />
+
+      {xp && (
+        <section className="block-box space-y-2 bg-lime p-4">
+          <p className="font-mono text-2xl font-extrabold">
+            {xp.gained > 0 ? `+${xp.gained} XP` : "XP ALREADY COUNTED"}
+            {xp.levelUp && " · LEVEL UP"}
+          </p>
+          <XpBar xp={xp.total} />
+          <a href="/profile" className="inline-block font-mono text-sm font-bold underline">View profile</a>
+        </section>
+      )}
 
       {s.analytics && (
         <section className="block-box space-y-4 bg-white p-4">

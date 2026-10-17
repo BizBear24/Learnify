@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, joinRoom, saveSession, loadHistory, type HistoryItem } from "@/lib/client";
+import { api, joinRoom, saveSession, loadHistory, loadProfile, type HistoryItem } from "@/lib/client";
+import XpBar from "@/components/XpBar";
 
 export default function Home() {
   const router = useRouter();
@@ -12,9 +13,11 @@ export default function Home() {
   const [busy, setBusy] = useState<"" | "upload" | "join">("");
   const [err, setErr] = useState("");
   const [hist, setHist] = useState<HistoryItem[]>([]);
+  const [xp, setXp] = useState(0);
 
   useEffect(() => {
     setHist(loadHistory());
+    setXp(loadProfile().xp);
     const c = new URLSearchParams(window.location.search).get("code");
     if (c) setCode(c.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5));
   }, []);
@@ -58,6 +61,11 @@ export default function Home() {
       <h1 className="text-6xl font-bold leading-[0.9] tracking-tight">
         Learnify<span className="bg-lime px-1">.</span>
       </h1>
+      {xp > 0 && (
+        <a href="/profile" className="block-box block bg-white p-3" aria-label="Open your profile">
+          <XpBar xp={xp} />
+        </a>
+      )}
       <p className="max-w-md text-xl">Drop a PDF. Get a live quiz room. Race your friends.</p>
 
       <section className="block-box space-y-2 bg-white p-4">
