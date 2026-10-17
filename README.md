@@ -1,76 +1,37 @@
 # Learnify
 
-You have a PDF you're supposed to study. Your friends have the same one. Nobody wants to read it.
+**Nobody reads the PDF. Everybody plays the quiz.**
 
-Drop it in, and about twenty seconds later you have a quiz room with a five-letter code. Everyone joins from their phone, sees the same question at the same moment, and races. Faster right answers score more.
+Drop in a PDF. Twenty seconds later there's a room code on the screen, ten questions loaded, and your friends are scanning a QR code to get in. Same question, same clock, faster right answers score more.
 
-**Try it: https://learnifyquiz.vercel.app**
+**Play it now: https://learnifyquiz.vercel.app**
 
-## What it does
+## Why it hits
 
-- Turns a text PDF into 10 multiple-choice questions.
-- Runs the quiz live: the host picks 10 to 60 seconds per question, then everyone gets 5 seconds to see the right answer and why. When every player has answered, the host can jump straight to the answer instead of waiting.
-- Lets the host fix the questions before starting. Only the host can start.
-- Shows a QR code in the lobby, so people can scan instead of typing the code.
-- Shows streaks and who answered fastest as the game goes.
-- Ends with a leaderboard, what each room found hard, and a personal SWOT built from your own right and wrong answers.
-- Gives you a 3-step study plan and a simpler explanation of any question you missed, if you ask for them.
-- Has a dashboard that tracks your accuracy and weak topics over time, and keeps each game's SWOT as a review.
-- Has an XP bar and a profile page: 10 XP per correct answer, a level every 100 XP.
-- Has a rematch button, and a `/demo` room that skips the AI for when the wifi gives up.
+- **PDF to live game in one drop.** No setup, no accounts, no app to install.
+- **The host runs the room.** Edit any question, set 10 to 60 seconds, start when ready. Everyone answered? One tap and you skip the wait.
+- **It feels like a game.** Streaks, fastest-answer badges, a live leaderboard, XP and levels.
+- **It teaches you back.** A personal SWOT from your own answers, a 3-step study plan, and a simpler explanation for anything you missed.
+- **It remembers you.** A dashboard of accuracy and weak topics, saved on your device.
 
-No accounts. Your history stays in your own browser.
+## Under the hood
 
-## How it works
+No websockets. The clock is the game state. Phones ask once a second where the game is, and the server works it out from the start time. Nothing lives in server memory, so it runs on plain serverless.
 
-There are no websockets. The server never pushes anything. Every phone just asks once a second where the game is. The server answers by laying the questions out on a timeline from the start time and checking which slot the clock falls in:
+Answers never leave the server before the reveal. Scores come from server timestamps, never from the browser.
 
-`answer window, then 5s reveal, then the next question`
+Next.js 14, Tailwind, Upstash Redis, Zod, `unpdf`, and any OpenAI-compatible model. Swap the AI by changing three env vars. It runs on Groq today.
 
-That is the whole multiplayer engine. Ending a question early just records how many seconds were saved. It also means nothing lives in server memory, so it runs on Vercel's serverless functions without any tricks.
-
-The right answer never leaves the server until that question's reveal window opens. Scores come from stored answers and server timestamps, never from anything the browser claims.
-
-Built with Next.js 14, Tailwind, Upstash Redis, Zod, `unpdf`, and any OpenAI-compatible model API. It runs on Groq right now.
-
-## Run it yourself
+## Run it
 
 ```bash
 npm install
-cp .env.example .env.local
+cp .env.example .env.local   # 5 values, listed inside
 npm run dev
 ```
 
-Fill in `.env.local`:
+Deploy with `npx vercel --prod` after adding the same five env vars.
 
-| Variable | What it is |
-|---|---|
-| `GEMMA_BASE_URL` | Any OpenAI-compatible endpoint, e.g. `https://api.groq.com/openai/v1` |
-| `GEMMA_API_KEY` | Your key for it |
-| `GEMMA_MODEL` | The model name. Nothing is hardcoded |
-| `UPSTASH_REDIS_REST_URL` | From a free Upstash Redis database |
-| `UPSTASH_REDIS_REST_TOKEN` | Same place |
+`/demo` spins up a room with no AI call, for when the wifi has other plans.
 
-Want a different AI provider? Change the first three. That's it.
-
-To test just the PDF-to-quiz step:
-
-```bash
-npx tsx --env-file=.env.local scripts/test-gemma.ts yourfile.pdf
-```
-
-## Deploy
-
-```bash
-npx vercel login
-npx vercel link
-npx vercel env add GEMMA_BASE_URL production   # do this for all five
-npx vercel --prod
-```
-
-## Know the limits
-
-- Text PDFs only. Scanned pages have no text to read, and the app will say so.
-- Up to 15 pages and 4 MB.
-- Rooms disappear after 6 hours.
-- The dashboard only knows about games played on the device you're using.
+Text PDFs only, up to 15 pages and 4 MB. Rooms vanish after 6 hours.
