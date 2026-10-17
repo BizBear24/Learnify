@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, joinRoom, loadSession, pushHistory } from "@/lib/client";
+import QuestionEditor from "@/components/QuestionEditor";
+import { BarChart, Stat } from "@/components/Charts";
 
 interface LB { pid: string; name: string; score: number; correct: number }
 interface Swot { strengths: string[]; weaknesses: string[]; opportunities: string[]; threats: string[] }
@@ -15,6 +17,7 @@ interface State {
   question?: { q: string; options: string[]; topic: string };
   myChoice?: number | null; answerIndex?: number; explanation?: string;
   leaderboard?: LB[]; swot?: Swot;
+  analytics?: { players: number; participation: number; accuracy: number; perQuestion: { qIndex: number; topic: string; pctCorrect: number; answered: number; avgSec: number | null }[] };
   myProgress?: { topics: { topic: string; right: number; total: number; pct: number }[]; missed: Missed[] } | null;
 }
 
@@ -31,6 +34,7 @@ export default function Room({ params }: { params: { code: string } }) {
   const [tick, setTick] = useState(0);
   const offset = useRef(0);
   const [nick, setNick] = useState("");
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     const ses = loadSession(code);
@@ -74,6 +78,7 @@ export default function Room({ params }: { params: { code: string } }) {
     pushHistory({
       code, title: s.title, at: Date.now(), score: mine.score, correct: mine.correct, total: s.total,
       weak: (s.myProgress?.topics ?? []).filter((t) => t.pct < 60).map((t) => t.topic).slice(0, 3),
+      topics: (s.myProgress?.topics ?? []).map(({ topic, right, total }) => ({ topic, right, total })),
     });
   }, [s, pid, code]);
 
@@ -125,10 +130,13 @@ export default function Room({ params }: { params: { code: string } }) {
   return (
     <div className="space-y-5">
       <Err msg={err} />
-      {s.phase === "lobby" && (
+      {s.phase === "lobby" && editing && isHost && (
+        <QuestionEditor code={code} hostToken={hostToken} onDone={() => { setEditing(false); poll(); }} />
+      )}
+      {s.phase === "lobby" && !editing && (
         <>
           <Code code={code} />
-          <p className="text-2xl font-bold">{s.title}</p>
+          <p className="text-2xl font-bold">{s.title} <span className="font-mono text-base">({s.total} Q)</span></p>
           <section className="block-box bg-white p-4">
             <h2 className="label mb-2">PLAYERS ({s.players.length})</h2>
             <ul className="divide-y-[3px] divide-ink border-y-[3px] border-ink">
@@ -138,7 +146,10 @@ export default function Room({ params }: { params: { code: string } }) {
             </ul>
           </section>
           {isHost ? (
-            <button className="btn w-full text-xl" onClick={start}>Start game</button>
+            <div className="space-y-3">
+              <button className="btn w-full bg-cyan" onClick={() => setEditing(true)}>Edit questions</button>
+              <button className="btn w-full text-xl" onClick={start}>Start game</button>
+            </div>
           ) : (
             <p className="font-mono font-bold">Waiting for the host to start…</p>
           )}
@@ -273,6 +284,29 @@ function Results({ s }: { s: State }) {
       <h1 className="text-5xl font-bold leading-none">Final results</h1>
       <p className="text-xl font-bold">{s.title}</p>
       <Board lb={s.leaderboard ?? []} me={s.me} />
+
+      {s.analytics && (
+        <section className="block-box space-y-4 bg-white p-4">
+          <h2 className="text-3xl font-bold">Room analytics</h2>
+          <div className="grid grid-cols-3 gap-3">
+            <Stat label="PLAYERS" value={s.analytics.players} bg="bg-cyan" />
+            <Stat label="ACCURACY" value={`${s.analytics.accuracy}%`} bg="bg-lime" />
+            <Stat label="ANSWERED" value={`${s.analytics.participation}%`} />
+          </div>
+          <div>
+            <p className="label mb-2">% OF PLAYERS CORRECT, PER QUESTION</p>
+            <BarChart data={s.analytics.perQuestion.map((p) => ({ label: `Q${p.qIndex + 1}`, value: p.pctCorrect }))} />
+          </div>
+          {(() => {
+            const hard = [...s.analytics.perQuestion].sort((a, b) => a.pctCorrect - b.pctCorrect)[0];
+            return hard ? (
+              <p className="font-mono text-sm font-bold">
+                HARDEST: Q{hard.qIndex + 1} ({hard.topic.toUpperCase()}), {hard.pctCorrect}% correct
+              </p>
+            ) : null;
+          })()}
+        </section>
+      )}
 
       {mp && (
         <section className="block-box space-y-3 bg-white p-4">

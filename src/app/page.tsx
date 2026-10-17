@@ -102,6 +102,7 @@ export default function Home() {
               </li>
             ))}
           </ul>
+          <a href="/dashboard" className="btn mt-3 w-full">Open dashboard</a>
           {weak.length > 0 && (
             <p className="mt-2 font-mono text-sm"><b>WEAK TOPICS:</b> {weak.join(" · ")}</p>
           )}

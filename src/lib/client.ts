@@ -46,6 +46,7 @@ export interface HistoryItem {
   correct: number;
   total: number;
   weak: string[];
+  topics?: { topic: string; right: number; total: number }[];
 }
 export function loadHistory(): HistoryItem[] {
   try {

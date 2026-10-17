@@ -89,3 +89,37 @@ export function progress(
     .sort((a, b) => a.pct - b.pct);
   return { topics, missed };
 }
+
+/** Room-wide analytics from real stored answers. */
+export function analytics(
+  room: Pick<Room, "startedAt" | "questions">,
+  players: Record<string, string>,
+  answers: Record<string, StoredAnswer>,
+) {
+  const n = Object.keys(players).length;
+  const perQuestion = room.questions.map((q, i) => {
+    let right = 0, answered = 0, ms = 0;
+    for (const pid of Object.keys(players)) {
+      const a = answers[`${pid}:${i}`];
+      if (!a) continue;
+      answered += 1;
+      ms += Math.max(0, a.t - ((room.startedAt ?? 0) + i * BLOCK_MS));
+      if (a.choice === q.answerIndex) right += 1;
+    }
+    return {
+      qIndex: i,
+      topic: q.topic,
+      pctCorrect: n ? Math.round((right / n) * 100) : 0,
+      answered,
+      avgSec: answered ? Math.round((ms / answered / 1000) * 10) / 10 : null,
+    };
+  });
+  const totalAnswers = perQuestion.reduce((a, p) => a + p.answered, 0);
+  const totalRight = perQuestion.reduce((a, p) => a + Math.round((p.pctCorrect / 100) * n), 0);
+  return {
+    players: n,
+    participation: n && room.questions.length ? Math.round((totalAnswers / (n * room.questions.length)) * 100) : 0,
+    accuracy: totalAnswers ? Math.round((totalRight / totalAnswers) * 100) : 0,
+    perQuestion,
+  };
+}

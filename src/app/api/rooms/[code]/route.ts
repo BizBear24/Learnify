@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAnswers, getPlayers, getRoom } from "@/lib/redis";
-import { ANSWER_MS, BLOCK_MS, derive, leaderboard, progress } from "@/lib/game";
+import { ANSWER_MS, BLOCK_MS, analytics, derive, leaderboard, progress } from "@/lib/game";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +37,7 @@ export async function GET(req: Request, { params }: { params: { code: string } }
       ...base,
       leaderboard: leaderboard(room, players, answers, room.questions.length),
       swot: room.swot,
+      analytics: analytics(room, players, answers),
       myProgress: players[pid] ? progress(room, pid, answers) : null,
     });
   }
