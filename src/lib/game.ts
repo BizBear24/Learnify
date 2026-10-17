@@ -194,7 +194,7 @@ export function playerSwot(
 
   for (const t of topics.filter((t) => t.pct >= 60 && t.pct < 100).slice(0, 2)) opportunities.push(`Close on ${t.topic} (${t.right}/${t.total}). One more right masters it.`);
   if (wrong > 0) opportunities.push("Reviewing your missed questions is the fastest way to gain points.");
-  if (unanswered > 0) opportunities.push(`${unanswered} unanswered question${unanswered > 1 ? "s" : ""} are points left on the table.`);
+  if (unanswered > 0) opportunities.push(`Unanswered questions (${unanswered}) are points left on the table.`);
   if (opportunities.length === 0) opportunities.push("Try a harder document to keep improving.");
 
   if (unanswered > 0) threats.push(`${unanswered} question${unanswered > 1 ? "s" : ""} timed out with no answer.`);
