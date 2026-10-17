@@ -51,7 +51,7 @@ function stripFences(s: string) {
 
 type Msg = { role: "system" | "user" | "assistant"; content: string };
 
-async function chat(messages: Msg[]): Promise<string> {
+async function chat(messages: Msg[], json = true): Promise<string> {
   const base = process.env.GEMMA_BASE_URL;
   const key = process.env.GEMMA_API_KEY;
   const model = process.env.GEMMA_MODEL;
@@ -63,16 +63,16 @@ async function chat(messages: Msg[]): Promise<string> {
     model,
     messages,
     temperature: 0.4,
-    response_format: { type: "json_object" },
+    ...(json ? { response_format: { type: "json_object" } } : {}),
   };
   let res = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
     body: JSON.stringify(body),
   });
-  if (res.status === 400) {
+  if (res.status === 400 && json) {
     // Provider may not support response_format; retry relying on the prompt alone.
-    const { response_format: _rf, ...rest } = body;
+    const { response_format: _rf, ...rest } = body as typeof body & { response_format?: unknown };
     void _rf;
     res = await fetch(url, {
       method: "POST",
@@ -119,4 +119,16 @@ export async function generateQuiz(text: string): Promise<Quiz> {
   const r2 = tryParse(second);
   if (r2.quiz) return r2.quiz;
   throw new Error("Model output failed validation: " + r2.error);
+}
+
+/** Small on-demand calls (study plan, explanations). Same provider, same env vars. */
+export async function askText(system: string, user: string): Promise<string> {
+  const out = await chat(
+    [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+    false,
+  );
+  return out.trim().replace(/^```\w*\s*|\s*```$/g, "").trim();
 }

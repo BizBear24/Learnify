@@ -174,8 +174,45 @@ export default function Room({ params }: { params: { code: string } }) {
         <Game s={s} nowSrv={nowSrv()} picked={picked} onPick={(c) => answer(s.qIndex!, c)} />
       )}
 
-      {s.phase === "finished" && <Results s={s} hostToken={hostToken} code={code} />}
+      {s.phase === "finished" && <Results s={s} hostToken={hostToken} code={code} pid={pid} />}
     </div>
+  );
+}
+
+function StudyPlan({ code, pid }: { code: string; pid: string }) {
+  const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [steps, setSteps] = useState<{ title: string; detail: string }[]>([]);
+  const [msg, setMsg] = useState("");
+  async function go() {
+    setState("loading");
+    try {
+      const r = await api<{ steps: { title: string; detail: string }[] }>(`/api/rooms/${code}/study`, { pid });
+      setSteps(r.steps);
+      setState("done");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed");
+      setState("error");
+    }
+  }
+  return (
+    <section className="block-box space-y-3 bg-lime p-4">
+      <h3 className="text-2xl font-bold">Study plan</h3>
+      {state === "done" ? (
+        <ol className="space-y-2">
+          {steps.map((st, i) => (
+            <li key={i} className="border-[3px] border-ink bg-paper p-3">
+              <p className="font-mono text-sm font-bold">STEP {i + 1}. {st.title.toUpperCase()}</p>
+              <p>{st.detail}</p>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <button className="btn w-full bg-paper" disabled={state === "loading"} onClick={go}>
+          {state === "loading" ? "Building your plan…" : state === "error" ? "Try again" : "Build my 3-step plan"}
+        </button>
+      )}
+      {state === "error" && <p role="alert" className="font-mono text-sm font-bold">{msg}</p>}
+    </section>
   );
 }
 
@@ -291,7 +328,7 @@ function Count({ to }: { to: number }) {
   return <>{v}</>;
 }
 
-function Results({ s, hostToken, code }: { s: State; hostToken: string; code: string }) {
+function Results({ s, hostToken, code, pid }: { s: State; hostToken: string; code: string; pid: string }) {
   const router = useRouter();
   const [rbusy, setRbusy] = useState(false);
   const [rerr, setRerr] = useState("");
@@ -338,6 +375,8 @@ function Results({ s, hostToken, code }: { s: State; hostToken: string; code: st
           })()}
         </section>
       )}
+
+      {mp && pid && <StudyPlan code={code} pid={pid} />}
 
       {mp && (
         <section className="block-box space-y-3 bg-white p-4">
