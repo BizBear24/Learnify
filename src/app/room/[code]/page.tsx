@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, joinRoom, loadSession, pushHistory } from "@/lib/client";
+import { useRouter } from "next/navigation";
+import { api, joinRoom, loadSession, pushHistory, saveSession } from "@/lib/client";
 import QuestionEditor from "@/components/QuestionEditor";
 import JoinQR from "@/components/JoinQR";
 import { BarChart, Stat } from "@/components/Charts";
@@ -17,6 +18,7 @@ interface State {
   qIndex?: number;
   question?: { q: string; options: string[]; topic: string };
   myChoice?: number | null; answerIndex?: number; explanation?: string;
+  nextCode?: string | null;
   leaderboard?: LB[]; swot?: Swot;
   analytics?: { players: number; participation: number; accuracy: number; perQuestion: { qIndex: number; topic: string; pctCorrect: number; answered: number; avgSec: number | null }[] };
   myProgress?: { topics: { topic: string; right: number; total: number; pct: number }[]; missed: Missed[] } | null;
@@ -171,7 +173,7 @@ export default function Room({ params }: { params: { code: string } }) {
         <Game s={s} nowSrv={nowSrv()} picked={picked} onPick={(c) => answer(s.qIndex!, c)} />
       )}
 
-      {s.phase === "finished" && <Results s={s} />}
+      {s.phase === "finished" && <Results s={s} hostToken={hostToken} code={code} />}
     </div>
   );
 }
@@ -278,7 +280,23 @@ function Count({ to }: { to: number }) {
   return <>{v}</>;
 }
 
-function Results({ s }: { s: State }) {
+function Results({ s, hostToken, code }: { s: State; hostToken: string; code: string }) {
+  const router = useRouter();
+  const [rbusy, setRbusy] = useState(false);
+  const [rerr, setRerr] = useState("");
+  async function rematch() {
+    setRbusy(true);
+    setRerr("");
+    try {
+      const r = await api<{ code: string; hostToken: string }>(`/api/rooms/${code}/rematch`, { hostToken });
+      saveSession(r.code, { hostToken: r.hostToken });
+      await joinRoom(r.code, s.me || "Host");
+      router.push(`/room/${r.code}`);
+    } catch (e) {
+      setRerr(e instanceof Error ? e.message : "Failed");
+      setRbusy(false);
+    }
+  }
   const sw = s.swot;
   const mp = s.myProgress;
   return (
@@ -368,6 +386,12 @@ function Results({ s }: { s: State }) {
           </div>
         </section>
       )}
+      {hostToken ? (
+        <button className="btn w-full bg-cyan" disabled={rbusy} onClick={rematch}>{rbusy ? "Creating…" : "Rematch"}</button>
+      ) : s.nextCode ? (
+        <a href={`/?code=${s.nextCode}`} className="btn w-full bg-cyan">Join rematch {s.nextCode}</a>
+      ) : null}
+      {rerr && <p role="alert" className="border-[3px] border-ink bg-wrong p-3 font-mono font-bold text-white">{rerr}</p>}
       <a href="/" className="btn w-full">New game</a>
     </>
   );

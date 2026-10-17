@@ -37,6 +37,7 @@ export async function GET(req: Request, { params }: { params: { code: string } }
       ...base,
       leaderboard: leaderboard(room, players, answers, room.questions.length),
       swot: room.swot,
+      nextCode: room.nextCode ?? null,
       analytics: analytics(room, players, answers),
       myProgress: players[pid] ? progress(room, pid, answers) : null,
     });

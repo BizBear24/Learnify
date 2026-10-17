@@ -33,6 +33,8 @@ export type Room = {
   questions: Question[];
   swot: Swot;
   hostToken: string;
+  nextCode?: string;
+  nextHostToken?: string;
   startedAt: number | null;
   players: Player[];
 };
